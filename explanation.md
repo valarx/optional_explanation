@@ -94,3 +94,4 @@ Without going deep into category theory, **monad** is a wrapper around type: `M<
 
 If you squint enough, you will notice, that `boost::optional` has both `flat_map` and `map`, which work as **combinator** and **type converter** respectively, thus providing a monadic interface. Besides that, `boost::optional` has `value_or` which lets you provide value returned in case there is `boost::none` inside, `value_or_eval` which lets you to provide a functor to execute. Sadly, it is missng `or_else` to handle only failing branch. It is worth noticing that functor passed into `value_or_eval` can not have return type `void`, because C++. But it is possible to workaround this issue by introducing empty type `Unit` (or by returning value provided as input).
 
+Alternatives? [TL optional, providing better interface,](https://github.com/TartanLlama/optional)for example
