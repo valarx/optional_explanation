@@ -17,23 +17,41 @@ In C if a function may fail, it is common practice to have return parameter repr
 This approach is extremely poorly composable, besides, it's hard to keep a mental model of what is going on, and it is imossible to enforce **const-correctness**:
 
 > int result = 0;
+> 
 > int error = do_stuff(&result);
+> 
 > int result2 = 0;
+> 
 > int result3 = 0;
+> 
 > if (error == 0) {
->   char buffer[255];
->   error = do_with_returning_error(&result, result2, &buffer);
->   if (error != 0) {
->       // handle error
->   } else {
->       another_function(&result3, &error);
->       if (error == 0) {
->           error = process(result3);
->           if (error != -1) {
->               // use the value somehow
->           }
->       }
->   }
+> 
+> &nbsp;&nbsp;char buffer[255];
+> 
+> &nbsp;&nbsp;error = do_with_returning_error(&result, result2, &buffer);
+> 
+> &nbsp;&nbsp;if (error != 0) {
+> 
+> &nbsp;&nbsp;&nbsp;&nbsp;// handle error
+> 
+> &nbsp;&nbsp;} else {
+> 
+> &nbsp;&nbsp;&nbsp;&nbsp;another_function(&result3, &error);
+> 
+> &nbsp;&nbsp;&nbsp;&nbsp;if (error == 0) {
+> 
+> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;error = process(result3);
+> 
+> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (error != -1) {
+> 
+> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// use the value somehow
+> 
+> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+> 
+> &nbsp;&nbsp;&nbsp;&nbsp;}
+> 
+> &nbsp;&nbsp;}
+> 
 > }
 
 Not difficult to understand that cyclomatic complexity of such code grows the more error handling one has to do. Changing in the way errors are handled may require complete change of the control flow of the function. At the same time using different functions may require changing in logic of error handling and lead to more bugs.
@@ -56,10 +74,15 @@ Boost::optional
 `boost::optional` is a option type provided by boost, it's implementation is header-only. While solving the issues of representing optional objects, it's usage still may be cumbersome. Since C++ doesn't have any form of pattern matching, engineer has to explicitly check if there is a value inside, and can call getters even without checking:
 
 > boost::optional<int> a;
+> 
 > if (a != boost::none) {
->   use_a(a.value());
+> 
+> &nbsp;&nbsp;use_a(a.value());
+> 
 > }
+> 
 > a.value() // also compiles, but throws exception at runtime, not exactly what we want
+> 
 > a.get() // nonchecked access, compiles and returns garbage
 
 Besides this obvious problems, we are still facing a problem of having control flow interlacing with program logic itself, which creates noise and makes it difficult to enforce const-correctness. What is the solution? **MONADS**
