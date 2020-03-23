@@ -83,7 +83,6 @@ So, how to use?
 * `boost::optional<T>::flat_map(std::function<boost::optional<U>(T)> f) -> boost::optional<U>` functor `f` does operation on value of type `T` and returns `boost::optional` wrapping type `U`, this value is then directly returned by `flat_map` (thus, it's "flatened", you do not get optional with optional inside). The function is called **only** if there is value inside, otherwise `boost::none` is returned.
 * `boost::optional<T>::value_or(const T& default)` returns either value of optional, of `default`, if there is `boost::none` inside
 * `boost::optional<T>::value_or_eval(std::function<U()> f)` like `value_or`, but accepts generator functor, which must return value of type, convertible to `T`
-It is worth noting, that arguments for both `map` and `flat_map` are **evaluated even if optional contains `boost::none`**, so if this calculation leads to side effects, **this must be taken into account**
 
 With this knowledge, it is possible to abstract all the checks. Let's say we take the code from C example and rewrite it with C++ and optional:
 
