@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <boost/none.hpp>
 #include <boost/optional.hpp>
 #include <boost/range/algorithm.hpp>
 #include <cassert>
@@ -42,29 +43,56 @@ int main() {
   const auto valid_res{safe_square_root(1)};
   assert(valid_res.is_initialized());
 
+  // example of sad evaluation chaining
+  {
+    double evaluations_sequence = .0;
+    bool has_error{false};
+
+    if (valid_res != boost::none) {
+      const auto tmp_res{valid_res.get()};
+      const auto negated_tmp_res{std::negate<double>{}(tmp_res)};
+      const auto new_res{safe_square_root(negated_tmp_res)};
+
+      if (new_res != boost::none) {
+        evaluations_sequence = new_res.get() * 2;
+      } else {
+        has_error = true;
+      }
+    } else {
+      has_error = true;
+    }
+
+    if (has_error) {
+      printf("sad value is %f\n", evaluations_sequence);
+    } else {
+      printf("sad value is invalid\n");
+    }
+  }
+
   // example of proper evaluations chaining
   {
     const auto evaluations_sequence{
         valid_res
-            .map([](const auto value) {
-              return value + 3;
-            }) // `map` is used if the functor returns value of type `T`
+            // `map` is used if the functor returns value of type `T`, then it
+            // wraps it into `boost::optional<T>`
+            .map([](const auto value) { return value + 3; })
             .map(std::negate<double>{})
-            .flat_map(safe_square_root)}; // `flat_map` is used if the functor
-                                          // returns value of type `optional<T>`
-
-    assert(evaluations_sequence == boost::none);
+            // `flat_map` is used if the functor
+            // returns value of type `optional<T>`, then it forwards it directly
+            .flat_map(safe_square_root)
+            .map([](const auto value) { return value * 2; })};
 
     // sadly we do not have `or_else` method, and both map and flat_map must
-    // return something, so when we end evaluation chain, we have to explicitly
-    // check for the value present, if we want to handle both branches:
+    // return something, so when we end evaluation chain, we have to
+    // explicitly check for the value present, if we want to handle both
+    // branches:
     if (evaluations_sequence != boost::none) {
       printf("value is %f\n", evaluations_sequence.get());
     } else {
       printf("value is invalid\n");
     }
 
-    // However, if in case of failure ir is possible to have a default value,
+    // However, if in case of failure it is possible to have a default value,
     // then one can use `value_or`:
     {
       const auto result{evaluations_sequence.value_or(NAN)};
@@ -96,6 +124,7 @@ int main() {
       }
     }
   }
+
   // Monadic approach with ranges
   {
     const auto person{maybe_load_from_file()};

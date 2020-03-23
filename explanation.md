@@ -8,9 +8,9 @@ In C if a function may fail, it is common practice to have return parameter repr
 
 `int do_stuff(int* a);` // does return value `non-zero` mean success?
 
-`int do_with_returning_error(int* a, int* b, char** err_string);` // probably returns error string, what does return value represent?
+`int do_with_returning_error(int* a, int* b);` // what does return value represent?
 
-`void another_function(int* a, int* b)` // yet another way to return error code
+`void another_function(int* a, int* b, int* c)` // yet another way to return error code
 
 `int process(int a)` // sometimes special value represents error by itself
 
@@ -22,12 +22,11 @@ This approach is extremely poorly composable, besides, it's hard to keep a menta
   int result2 = 0; 
   int result3 = 0; 
   if (error == 0) { 
-    char buffer[255];
-    error = do_with_returning_error(&result, result2, &buffer);     
+    error = do_with_returning_error(&result, &result2);     
     if (error != 0) {
         // handle error
     } else {
-        another_function(&result3, &error);
+        another_function(&result, &result3, &error);
         if (error == 0) {
             error = process(result3);
             if (error != -1) {
@@ -45,7 +44,7 @@ In C++ in addition to all of these exceptions were added, which are also far fro
 Solution from the point of view of type theory
 ----------------------------------------------
 
-Type teory suggests to use option type encapsulating value and tagging it to signal if it is empty or not. I.e. we are extendig set of values `A` with exactly one more value, which represents `empty` value. In various programming languages it is represented in different ways: `Maybe`, `Option`, `optional`. There is distinction from NullObject pattern, since unlike NullObject, option type is:
+Type teory suggests to use option type encapsulating value and tagging it to signal if it is empty or not. I.e. we are extendig set of values `A` with exactly one more value, which represents `empty` value. In various programming languages it is represented in different ways: `Maybe`, `Option`, `optional`. There is distinction from `NullObject` pattern, since unlike `NullObject`, option type is:
 1. enforced by type system.
 2. doesn't require any special crafting to not affect calling functions.
 3. as a consequence of 1. and 2., much harder to misuse .
@@ -75,4 +74,42 @@ Without going deep into category theory, **monad** is a wrapper around type: `M<
 
 If you squint enough, you will notice, that `boost::optional` has both `flat_map` and `map`, which work as **combinator** and **type converter** respectively, thus providing a monadic interface. Besides that, `boost::optional` has `value_or` which lets you provide value returned in case there is `boost::none` inside, `value_or_eval` which lets you to provide a functor to execute. Sadly, it is missng `or_else` to handle only failing branch. It is worth noticing that functor passed into `value_or_eval` can not have return type `void`, because C++. But it is possible to workaround this issue by introducing empty type `Unit` (or by returning value provided as input).
 
-Alternatives? [TL optional, providing better interface](https://github.com/TartanLlama/optional), for example
+So, how to use?
+---------------
+
+`boost::optional` provides a set of convenience methods to abstract boilerplate require for flow control, eversimplified they can be represented like this:
+
+* `boost::optional<T>::map(std::function<U(T)> f) -> boost::optional<U>` functor `f` does operation on value of type `T` and returns value of type `U`, this value is then wrapped in optional. The function is called **only** if there is value inside, otherwise `boost::none` is returned.
+* `boost::optional<T>::flat_map(std::function<boost::optional<U>(T)> f) -> boost::optional<U>` functor `f` does operation on value of type `T` and returns `boost::optional` wrapping type `U`, this value is then directly returned by `flat_map` (thus, it's "flatened", you do not get optional with optional inside). The function is called **only** if there is value inside, otherwise `boost::none` is returned.
+* `boost::optional<T>::value_or(const T& default)` returns either value of optional, of `default`, if there is `boost::none` inside
+* `boost::optional<T>::value_or_eval(std::function<U()> f)` like `value_or`, but accepts generator functor, which must return value of type, convertible to `T`
+It is worth noting, that arguments for both `map` and `flat_map` are **evaluated even if optional contains `boost::none`**, so if this calculation leads to side effects, **this must be taken into account**
+
+With this knowledge, it is possible to abstract all the checks. Let's say we take the code from C example and rewrite it with C++ and optional:
+
+```
+boost::optional<int> do_stuff();
+boost::optional<std::tuple<int, int>> do_with_returning_error();
+boost::optional<int> another_function(int a, int b);
+boost::optional<int> process(int a);
+  
+{
+  const auto result {
+    do_stuff()
+      .flat_map(do_with_returning_error)
+      .flat_map([](const auto& value) { return another_function(std::get<0>(value), std::get<1>(value)); })
+      .flat_map(process)};
+  if (result != boost::none)
+  {
+    // use result.get()
+  }
+}
+```
+
+From this example you can see, that usage of optional erases the error type, but if you were returning null in case of error, or just true/false/special_value, then it's worth considering using it instead.
+
+Alternatives?
+--------------
+
+`std::optional` introduced in C++17, has approximately 50% of `boost::optional` functionality
+[TL optional, providing better interface](https://github.com/TartanLlama/optional), for example
